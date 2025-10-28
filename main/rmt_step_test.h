@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "driver/rmt_tx.h"
+#include "driver/rmt_encoder.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
 
