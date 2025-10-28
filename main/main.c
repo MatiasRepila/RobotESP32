@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "mpu6050.h"
 #include "esp_check.h"
+#include "rmt_step_test.h"
 #include <math.h>
 
 // ===== Pines y configuración I2C =====
@@ -22,12 +23,18 @@
 #define IMU_LOOP_MS   (1000 / IMU_LOOP_HZ)
 #define COMP_ALPHA    0.98f   // confianza alta en gyro a 100 Hz
 
+// === RMT TEST ====
+#define GPIO_STEP   ((gpio_num_t)18)
+#define GPIO_DIR    ((gpio_num_t)19)
+#define RMT_RES_HZ  (1*1000*1000)   // 1 MHz => 1 tick = 1 us
+
 static const char *TAG = "MPU6050";
 
-// Handler global
+// ==== Handlers ====
 static mpu6050_t imu;
+static rmt_step_t s_step;
 
-// --- Init I2C ---
+// ==== Init I2C ====
 static esp_err_t i2c_master_init(void)
 {
     i2c_config_t conf = {
@@ -62,7 +69,30 @@ static void imu_complementary_task(void *arg)
         vTaskDelayUntil(&last, period);
     }
 }
+// ===== Tarea: test rmt motores stepper =====
 
+static void rmt_test_task(void *arg)
+{
+    // 3 perfiles para medir en el osciloscopio
+    const struct { float f; uint32_t ms; } seq[] = {
+        {  500.0f, 2000 },   // T ~ 2000 us
+        { 2000.0f, 2000 },   // T ~  500 us
+        {10000.0f, 2000 },   // T ~  100 us (ojo con pulso mínimo del driver)
+    };
+
+    while (1) {
+        // DIR forward 3 tramos
+        for (int i = 0; i < 3; ++i) {
+            rmt_step_pulse(&s_step, true,  seq[i].f, seq[i].ms, 2); // pulso 2 us
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        // DIR reverse 3 tramos
+        for (int i = 0; i < 3; ++i) {
+            rmt_step_pulse(&s_step, false, seq[i].f, seq[i].ms, 2);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
 // ===== app_main =====
 void app_main(void)
 {
@@ -93,6 +123,10 @@ void app_main(void)
     // Tarea de estimación de roll con filtro complementario
     xTaskCreate(imu_complementary_task, "imu_complementary_task",
                 3*1024, NULL, tskIDLE_PRIORITY + 2, NULL);
+
+    // ===== RMT STEP test (independiente de la IMU) =====
+    ESP_ERROR_CHECK(rmt_step_init(&s_step, GPIO_STEP, GPIO_DIR, RMT_RES_HZ));
+    xTaskCreate(rmt_test_task, "rmt_test_task", 3*1024, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // Idle loop
     while (1) {
