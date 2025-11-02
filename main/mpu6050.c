@@ -228,7 +228,16 @@ esp_err_t mpu6050_calibrate_gyro(mpu6050_t *imu, int samples, int ms_between){
     imu->gz0 = sz/samples;
     return ESP_OK;
 }
-
+// ===================== Lectura Velocidad angular =====================
+esp_err_t mpu6050_read_roll_dps(mpu6050_t *imu, float *roll_dps){
+    if (!imu || !roll_dps) return ESP_ERR_INVALID_ARG;
+    float gx_dps, gy_dps, gz_dps;
+    ESP_RETURN_ON_ERROR(mpu6050_read_gyro(imu, &gx_dps, &gy_dps, &gz_dps), "MPU", "gyr rd");
+    // Usa el mismo remapeo que el filtro complementario:
+    float g_roll = GYRO_ROLL(gx_dps, gy_dps, gz_dps);
+    *roll_dps = g_roll;
+    return ESP_OK;
+}
 // ===================== Filtro complementario (solo roll) =====================
 esp_err_t mpu6050_step_complementary_roll(mpu6050_t *imu, float alpha_cfg, float *roll_out)
 {
@@ -269,7 +278,7 @@ esp_err_t mpu6050_step_complementary_roll(mpu6050_t *imu, float alpha_cfg, float
     // Si el ACC está fuera de rango, ignoro su corrección esta iteración
     float err = acc_confiable ? wrap180f(roll_acc_deg - roll_gyro_deg) : 0.0f;
 
-    imu->roll_deg = roll_gyro_deg + (1.0f - alpha_eff) * err;
+    imu->roll_deg = roll_gyro_deg + (1.0f - alpha_eff) * err;   
 
     if (roll_out) *roll_out = imu->roll_deg;
     return ESP_OK;

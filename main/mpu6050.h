@@ -47,11 +47,15 @@ esp_err_t mpu6050_calibrate_gyro(mpu6050_t *imu, int samples, int ms_between);
 // Lecturas escaladas
 esp_err_t mpu6050_read_accel(mpu6050_t *imu, float *ax, float *ay, float *az);
 esp_err_t mpu6050_read_gyro (mpu6050_t *imu, float *gx, float *gy, float *gz);
+esp_err_t mpu6050_read_roll_dps(mpu6050_t *imu, float *roll_dps);
 
 // Paso de filtro complementario (solo roll):
 // alpha en [0..1], p.ej. 0.98 a 100 Hz.
 // Actualiza imu->roll_deg y opcionalmente lo devuelve en roll_out.
 esp_err_t mpu6050_step_complementary_roll(mpu6050_t *imu, float alpha, float *roll_out);
+
+
+
 
 // Getter rápido
 static inline float mpu6050_get_roll (const mpu6050_t *imu){ return imu->roll_deg; }
