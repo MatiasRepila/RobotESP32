@@ -51,8 +51,8 @@
 // Por defecto: roll = alrededor de X => uso gx, y para ACC uso (ay, az).
 // Si tu roll real fuera alrededor de Y, por ejemplo, podrías usar: GYRO_ROLL gy_dps y (ax, az).
 
-#define GYRO_ROLL(gx_dps,gy_dps,gz_dps)   (gx_dps)   // opciones: (gx_dps) / (gy_dps) / (gz_dps)
-#define ACC_Y_FOR_ROLL(ax,ay,az)          (ay)       // opciones: (ax) / (ay) / (az)
+#define GYRO_ROLL(gx_dps,gy_dps,gz_dps)   (-(gx_dps))   // opciones: (gx_dps) / (gy_dps) / (gz_dps)
+#define ACC_Y_FOR_ROLL(ax,ay,az)          (-(ay))       // opciones: (ax) / (ay) / (az)
 #define ACC_Z_FOR_ROLL(ax,ay,az)          (az)       // opciones: (ax) / (ay) / (az)
 
 // ===================== Registros MPU6050 =====================

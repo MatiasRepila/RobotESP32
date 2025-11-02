@@ -11,13 +11,16 @@
 #include "driver/rmt_encoder.h"
 #include <math.h>
 #include "control_task.h"
-#include "bt_spp.h" //cambio de parametros
+#include "bt_spp.h"
+#include "nvs_flash.h"
+#include "esp_bt.h"
+#include "esp_bt_main.h"
 
 
 
 // ===== Pines y configuración I2C =====
-#define I2C_MASTER_SCL_IO           22
-#define I2C_MASTER_SDA_IO           21
+#define I2C_MASTER_SCL_IO           27
+#define I2C_MASTER_SDA_IO           26
 #define I2C_MASTER_NUM              I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ          100000
 #define I2C_MASTER_TX_BUF_DISABLE   0
@@ -124,7 +127,7 @@ void app_main(void)
 
     // Calibración de bias del gyro (quieto)
     ESP_LOGI(TAG, "Calibrando giroscopio (0.5 s), no mover...");
-    ESP_ERROR_CHECK(mpu6050_calibrate_gyro(&imu, /*samples*/100, /*ms_between*/5));
+    ESP_ERROR_CHECK(mpu6050_calibrate_gyro(&imu, /*samples*/100, /*ms_between*/10));
     ESP_LOGI(TAG, "Bias: gx0=%.3f gy0=%.3f gz0=%.3f (deg/s)", imu.gx0, imu.gy0, imu.gz0);
 
     ESP_LOGI("app", "Creando colas...");
@@ -133,15 +136,23 @@ void app_main(void)
     q_ctrl_cmd = xQueueCreate(1, sizeof(control_cmd_t));
     ESP_ERROR_CHECK(q_imu2ctrl && q_ctrl_cmd ? ESP_OK : ESP_FAIL);
 
-    control_task_start(6, 2048);
+    control_task_start(6, 4906);
 
-    ESP_ERROR_CHECK(bt_spp_start("RobotBalancin"));
+    
 
     // Tarea de estimación de roll con filtro complementario
     xTaskCreate(imu_complementary_task, "imu_complementary_task",
                 3*1024, NULL, tskIDLE_PRIORITY + 2, NULL);
 
-    // Idle loop
+    // NVS (antes de cualquier cosa de BT)
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ESP_ERROR_CHECK(nvs_flash_init());
+    }
+
+    // SOLO esto: todo lo demás ocurre adentro de bt_spp_start()
+    ESP_ERROR_CHECK(bt_spp_start("RobotBalancin"));
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "rmt_step_test.h"   // tu RMT STEP/DIR
 #include "control_task.h"    // motor_cmd_t
-
+/*
 typedef struct {
     QueueHandle_t    q_in;            // cola desde control_task (motor_cmd_t)
     rmt_step_t      *rmt;             // canal RMT ya inicializado
@@ -16,3 +16,4 @@ typedef struct {
 } motor_task_cfg_t;
 
 void motor_task_start(const motor_task_cfg_t *cfg);
+*/

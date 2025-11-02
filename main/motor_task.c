@@ -3,7 +3,7 @@
 #include "esp_log.h"
 #include <math.h>
 #include <string.h>
-
+/*
 static const char *TAG = "MOTOR";
 
 typedef struct {
@@ -82,3 +82,4 @@ void motor_task_start(const motor_task_cfg_t *cfg_in)
 
     xTaskCreate(motor_task, "motor_task", 3*1024, cfg, tskIDLE_PRIORITY+2, NULL);
 }
+*/
