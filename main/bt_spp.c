@@ -184,12 +184,12 @@ static void spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param){
     case ESP_SPP_SRV_OPEN_EVT:
         s_spp_handle = param->srv_open.handle;
         s_linepos = 0;
-        ESP_LOGI(TAG, "Client connected");
-        replyf("Hello SPP! type 'help'");
+        ESP_LOGI(TAG, "Connectado");
+        replyf("Escribir 'help' para ver comandos");
         break;
 
     case ESP_SPP_CLOSE_EVT:
-        ESP_LOGI(TAG, "Client disconnected");
+        ESP_LOGI(TAG, "Desconectado");
         s_spp_handle = 0;
         s_linepos = 0;
         break;

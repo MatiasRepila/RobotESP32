@@ -36,3 +36,12 @@ typedef struct {
 } control_cmd_t;
 
 extern QueueHandle_t q_ctrl_cmd;
+
+// --- Mensaje Control -> Motor ---
+typedef struct {
+    float u_pd;       // "aceleración" en unidades del control
+    float dt;         // [s] delta de tiempo de esa muestra
+    TickType_t tick;  // timestamp FreeRTOS
+} control_out_msg_t;
+
+extern QueueHandle_t q_ctrl_out;

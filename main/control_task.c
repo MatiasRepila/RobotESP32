@@ -6,6 +6,9 @@
 
 static const char *TAG = "control";
 
+
+
+
 /*========================
  * Helpers
  *========================*/
@@ -169,29 +172,60 @@ static void control_task(void *arg) {
         }
 
         /* 4) Cálculo PD interno (SOLO si ENABLED) */
+        const float E_DEAD_DEG = 0.5f;   // error angular chico
+        const float W_DEAD_DPS = 1.0f;   // vel. angular chica
+        const float U_DEAD     = 0.15f;  // mando chico -> apago
+        const float U_BLEED    = 0.88f;  // “suelto” u_prev hacia 0 cuando estoy quieto
+        static float w_filt = 0.0f;      // filtro 1er orden sobre roll_dps
+        const float BETA = 0.85f;        // más cerca de 1 = más filtrado
+
         float u_pd = 0.0f;
         if (have_sample && g_state == CTRL_ENABLED) {
-            // e = ref - roll ; derivada sobre medición => -roll_dps
-            const float e = g_cfg.ref_deg - m.roll_deg;
+            // Derivada filtrada + zona muerta
+            w_filt = BETA * w_filt + (1.0f - BETA) * m.roll_dps;
+            float w_use = (fabsf(w_filt) < W_DEAD_DPS) ? 0.0f : w_filt;
 
-            // PD básico
-            float u = g_cfg.kp_int * e + g_cfg.kd_int * (-m.roll_dps);
+            // Error con zona muerta
+            float e = g_cfg.ref_deg - m.roll_deg;
+            if (fabsf(e) < E_DEAD_DEG) e = 0.0f;
 
-            // Clamp absoluto
+            // PD
+            float u = g_cfg.kp_int * e + g_cfg.kd_int * (-w_use);
+
+            // Deadband de mando
+            if (fabsf(u) < U_DEAD) u = 0.0f;
+
+            // Clamp + slew
             u = clampf(u, g_cfg.out_limit_abs);
 
-            // Slew rate limit (paso a paso según dt)
             float dt = m.dt;
-            float dt_fallback = (float)period / (float)configTICK_RATE_HZ;  // en segundos
+            float dt_fallback = (float)period / (float)configTICK_RATE_HZ;
             if (!(dt > 0.0f)) dt = dt_fallback;
-            
+
             const float slew_per_sample = g_cfg.out_slew_max * dt;
-            u_pd = slew_limit(u_prev, u, slew_per_sample);
-            u_prev = u_pd;
+
+            // Si estoy “quieto” (e=0 y w_use=0), drená u_prev a 0
+            if (u == 0.0f) {
+                u_prev *= U_BLEED;
+                if (fabsf(u_prev) < U_DEAD) u_prev = 0.0f;
+                u_pd = u_prev;
+            } else {
+                u_pd = slew_limit(u_prev, u, slew_per_sample);
+                u_prev = u_pd;
+            }
         } else {
-            // No habilitado: salida cero
             u_prev = 0.0f;
             u_pd   = 0.0f;
+        }
+
+        if (q_ctrl_out) {
+            control_out_msg_t om = {
+            .u_pd = u_pd,
+            .dt   = (have_sample ? m.dt : ((float)period / (float)configTICK_RATE_HZ)),
+            .tick = xTaskGetTickCount()
+            };
+            // cola tamaño 1 -> último dato siempre fresco
+            (void)xQueueOverwrite(q_ctrl_out, &om);
         }
 
         /* 5) Debug cada ~200 ms */

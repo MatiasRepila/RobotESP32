@@ -6,15 +6,17 @@
 #include "esp_log.h"
 #include "mpu6050.h"
 #include "esp_check.h"
+#include "motor_timer_dual.h"
 #include "control_bus.h"
-#include "driver/rmt_tx.h"
-#include "driver/rmt_encoder.h"
 #include <math.h>
 #include "control_task.h"
 #include "bt_spp.h"
 #include "nvs_flash.h"
 #include "esp_bt.h"
 #include "esp_bt_main.h"
+
+
+
 
 
 
@@ -39,8 +41,9 @@ static const char *TAG = "MPU6050";
 static mpu6050_t imu;
 
 // Definiciones únicas de las colas 
-QueueHandle_t q_imu2ctrl = NULL;
-QueueHandle_t q_ctrl_cmd = NULL;
+QueueHandle_t q_imu2ctrl  = NULL;
+QueueHandle_t q_ctrl_cmd  = NULL;
+QueueHandle_t q_ctrl_out = NULL;
 
 
 //Init I2C 
@@ -127,14 +130,16 @@ void app_main(void)
 
     // Calibración de bias del gyro (quieto)
     ESP_LOGI(TAG, "Calibrando giroscopio (0.5 s), no mover...");
-    ESP_ERROR_CHECK(mpu6050_calibrate_gyro(&imu, /*samples*/100, /*ms_between*/10));
+    ESP_ERROR_CHECK(mpu6050_calibrate_gyro(&imu, /*samples*/400, /*ms_between*/10));
     ESP_LOGI(TAG, "Bias: gx0=%.3f gy0=%.3f gz0=%.3f (deg/s)", imu.gx0, imu.gy0, imu.gz0);
 
     ESP_LOGI("app", "Creando colas...");
 
     q_imu2ctrl = xQueueCreate(1, sizeof(imu_msg_t));
     q_ctrl_cmd = xQueueCreate(1, sizeof(control_cmd_t));
-    ESP_ERROR_CHECK(q_imu2ctrl && q_ctrl_cmd ? ESP_OK : ESP_FAIL);
+    q_ctrl_out = xQueueCreate(1, sizeof(control_out_msg_t));
+
+    ESP_ERROR_CHECK(q_imu2ctrl && q_ctrl_cmd && q_ctrl_out? ESP_OK : ESP_FAIL);
 
     control_task_start(6, 4906);
 
@@ -150,6 +155,15 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
+
+    
+motor_timer_dual_start(/*STEP_L*/ 23, /*DIR_L*/ 22,
+                       /*STEP_R*/ 18, /*DIR_R*/ 19,
+                       /*isr_hz*/ 50000, /*pulse_ticks*/ 2);
+motor_set_limits(8000.0f, 20000.0f);
+motor_set_k_accel(1000.0f);
+motor_task_timer_start(tskIDLE_PRIORITY+2, 3*1024);
+    
 
     // SOLO esto: todo lo demás ocurre adentro de bt_spp_start()
     ESP_ERROR_CHECK(bt_spp_start("RobotBalancin"));
